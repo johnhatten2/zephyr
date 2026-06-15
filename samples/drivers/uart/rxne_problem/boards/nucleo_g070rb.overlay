@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2025 STMicroelectronics
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+ / {
+	// Console RX on PC5 (CN10.37 or CN9.1), Console TX on PC4 (CN10.35 or CN9.2)
+ 	chosen {
+		zephyr,console = &usart1;         /* in zephyr/boards/st/nucleo_g070rb/nucleo_g070rb.dts:19 */
+		zephyr,shell-uart = &usart1;      /* in zephyr/boards/st/nucleo_g070rb/nucleo_g070rb.dts:20 */
+	};
+};
+
+// Other uart RX on PC11 (CN7.2), TX on PC10 (CN7.1)
+// Can be looped back with a jumper
+&usart1 {
+    dmas = <&dmamux1 5 51 (STM32_DMA_PERIPH_TX | STM32_DMA_PRIORITY_LOW)>,
+           <&dmamux1 4 50 (STM32_DMA_PERIPH_RX | STM32_DMA_PRIORITY_LOW)>;
+    dma-names = "tx", "rx";
+    current-speed = <921600>;
+};
+
+&usart3 {
+    pinctrl-0 = <&usart3_tx_pc10 &usart3_rx_pc11>;
+    pinctrl-names = "default";
+    dmas = <&dmamux1 1 55 (STM32_DMA_PERIPH_TX | STM32_DMA_PRIORITY_LOW)>,
+           <&dmamux1 2 54 (STM32_DMA_PERIPH_RX | STM32_DMA_PRIORITY_VERY_HIGH | STM32_DMA_MODE_CYCLIC)>;
+    dma-names = "tx", "rx";
+	fifo-enable;
+	current-speed = <921600>;
+	status = "okay";
+};
+
+&dma1 {
+	status = "okay";
+};
+
+&dmamux1 {
+	status = "okay";
+};
+
+&rcc {
+	clocks = <&clk_hsi>;
+	clock-frequency = <DT_FREQ_M(16)>;
+	ahb-prescaler = <1>;
+};

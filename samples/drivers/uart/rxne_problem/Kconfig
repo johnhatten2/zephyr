@@ -1,0 +1,6 @@
+source "Kconfig.zephyr"
+
+config FIX_RXNE_PROBLEM
+	bool "Use this for a quick fix of the RXNE problem"
+    default n
+
