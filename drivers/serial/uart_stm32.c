@@ -1393,6 +1393,14 @@ static void uart_stm32_dma_rx_flush(const struct device *dev, int status)
 	defined(CONFIG_UART_ASYNC_API) || \
 	defined(CONFIG_PM)
 
+#define ON_UART3(code) \
+		do { \
+			 if (usart == USART3) { \
+				code; \
+			 } \
+		} while (0)
+
+int uart3_isr, uart3_rxne, uart3_error;
 static void uart_stm32_isr(const struct device *dev)
 {
 	struct uart_stm32_data *data = dev->data;
@@ -1410,6 +1418,8 @@ static void uart_stm32_isr(const struct device *dev)
 	 */
 	const bool tx_complete = LL_USART_IsEnabledIT_TC(usart) && LL_USART_IsActiveFlag_TC(usart);
 #endif
+
+	ON_UART3(uart3_isr++);
 
 #ifdef CONFIG_PM
 	if (tx_complete) {
@@ -1504,6 +1514,7 @@ static void uart_stm32_isr(const struct device *dev)
 		/* clear the RXNE by flushing the fifo, because Rx data was not read */
 		LL_USART_RequestRxDataFlush(usart);
 #endif /* USART_SR_RXNE */
+		ON_UART3(uart3_rxne++);
 #if HAS_RTO
 	} else if (LL_USART_IsEnabledIT_RTO(usart) && LL_USART_IsActiveFlag_RTO(usart)) {
 
@@ -1515,7 +1526,10 @@ static void uart_stm32_isr(const struct device *dev)
 	}
 
 	/* Clear errors */
-	uart_stm32_err_check(dev);
+	int ret = uart_stm32_err_check(dev);
+	if (ret) {
+		ON_UART3(uart3_error++);
+	}
 #endif /* CONFIG_UART_ASYNC_API */
 
 }
@@ -1624,6 +1638,10 @@ static int uart_stm32_async_rx_disable(const struct device *dev)
 	LL_USART_DisableIT_IDLE(usart);
 #endif /* HAS_RTO */
 
+#if IS_ENABLED(CONFIG_FIX_RXNE_PROBLEM)
+	LL_USART_DisableIT_ERROR(usart);
+#endif
+
 	uart_stm32_dma_rx_flush(dev, STM32_ASYNC_STATUS_TIMEOUT);
 
 	async_evt_rx_buf_release(data);
@@ -1646,7 +1664,9 @@ static int uart_stm32_async_rx_disable(const struct device *dev)
 	data->rx_next_buffer_len = 0;
 
 	/* When async rx is disabled, enable interruptible instance of uart to function normally */
+#if !IS_ENABLED(CONFIG_FIX_RXNE_PROBLEM)
 	ll_usart_irq_rx_enable(usart);
+#endif
 
 	LOG_DBG("rx: disabled");
 
